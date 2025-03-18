@@ -1,32 +1,26 @@
 "use client"; // Make this a Client Component
 
 import { signOut, signIn, useSession } from "next-auth/react";
-import StatusCard from "@/components/StatusCard";
+import NavBar from "@/components/NavBar";
+import Image from "next/image";
 
 export default function Home() {
   const { data: session } = useSession();
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen">
-      {session ? (
+    <>
+      <NavBar></NavBar>
+      <div className="flex w-screen">
         <div>
-          <h1>Welcome, {session.user?.name}</h1>
-          <button
-            className="mt-4 px-6 py-2 bg-red-500 text-white rounded-md"
-            onClick={() => signOut()}
-          >
-            Sign Out
-          </button>
+          <Image
+            src="/printer.webp"
+            alt="printer"
+            width={700}
+            height={700}
+            className="h-auto w-auto py-[13rem] px-[10rem] opacity-90"
+          ></Image>
         </div>
-      ) : (
-        <button
-          className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-md"
-          onClick={() => signIn("google")}
-        >
-          Sign In with Google
-        </button>
-      )}
-      <StatusCard name="Mumbai Stationary" status="Online" pages={3} />
-    </main>
+      </div>
+    </>
   );
 }
