@@ -1,5 +1,58 @@
 @import "tailwindcss";
 
+@keyframes slowJump {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-25px); /* Small jump */
+  }
+}
+
+.animate-slowJump {
+  animation: slowJump 5s ease-in-out infinite;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
+
+.font-lato {
+  font-family: 'Lato', sans-serif;
+}
+
+@keyframes strikeThrough {
+  0% {
+    width: 0;
+    background-color: red;
+  }
+  100% {
+    width: 100%;
+    background-color: rgb(0, 187, 0);
+  }
+}
+
+.animate-strike {
+  position: relative;
+  display: inline-block;
+  transition: color 0.2s ease-in-out; /* Smooth color change */
+}
+
+.animate-strike::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 2px;
+  width: 0;
+  background-color:red;
+  animation: strikeThrough 1s forwards ease-in-out;
+}
+
+.change-color {
+  color: rgb(0, 187, 0);
+}
+
+
+
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
