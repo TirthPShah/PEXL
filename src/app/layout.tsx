@@ -28,3 +28,20 @@ export default function RootLayout({
     </SessionProvider>
   );
 }
+
+
+export const metadata = {
+  title: "My Next.js App",
+  description: "A modern Next.js application",
+  icons: {
+    icon: "/favicon.ico",
+  },
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
