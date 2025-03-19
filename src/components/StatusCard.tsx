@@ -10,7 +10,7 @@ interface StatusCardProps {
 
 export default function StatusCard({ name, status, pages }: StatusCardProps) {
   return (
-    <Card className="relative w-full max-w-xl p-4 flex justify-between bg-white shadow-xl rounded-2xl border border-gray-200">
+    <Card className="relative w-full max-w-xl p-4 flex justify-between bg-white rounded-2xl border border-gray-300 cursor-pointer">
       {/* Left Side: Name + Status */}
       <div className="flex flex-col">
         <h3 className="text-lg font-semibold text-gray-900">{name}</h3>
@@ -35,7 +35,7 @@ export default function StatusCard({ name, status, pages }: StatusCardProps) {
       {/* Right Side: Badge (Only if status is "Online") */}
       {status === "Online" && pages !== undefined && (
         <div className="absolute top-6 right-4">
-          <Badge className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
+          <Badge className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg text-sm font-medium">
             {pages} pages in queue
           </Badge>
         </div>

@@ -23,6 +23,9 @@ export default function RootLayout({
   return (
     <SessionProvider>
       <html lang="en">
+        <head>
+          <link rel="icon" href="/pexl-favico.ico" />
+        </head>
         <body>{children}</body>
       </html>
     </SessionProvider>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 // import logo
-import Image from 'next/image'
+import Image from "next/image";
 
 export default function NavBar() {
   const { data: session } = useSession();
@@ -29,7 +29,15 @@ export default function NavBar() {
     <header className="fixed top-0 left-0 w-full flex items-center justify-between px-6 py-3 bg-white/60 backdrop-blur-md z-50 shadow-sm">
       {/* Left Side: Logo */}
       <div className="text-2xl font-bold">
-        <Link href="/"><Image src="/pexl-logo.svg" alt="PEXL" width={1} height={50} style={{ height: "45px", width: "auto" }}/></Link>
+        <Link href="/">
+          <Image
+            src="/pexl-logo.svg"
+            alt="PEXL"
+            width={1}
+            height={50}
+            style={{ height: "45px", width: "auto" }}
+          />
+        </Link>
       </div>
 
       {/* Middle: Navigation Links */}
@@ -69,7 +77,7 @@ export default function NavBar() {
             {!session ? (
               <button
                 onClick={() => signIn("google")}
-                className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                className="w-full text-left px-4 py-2 hover:bg-gray-100 font-[450]"
               >
                 LogIn/SignUp
               </button>
@@ -77,7 +85,7 @@ export default function NavBar() {
               <>
                 <Link
                   href="/my-orders"
-                  className="block px-4 py-2 hover:bg-gray-100"
+                  className="block px-4 py-2 hover:bg-gray-100 font-[450]"
                   onClick={() => setDropdownOpen(false)}
                 >
                   My Orders
@@ -87,7 +95,7 @@ export default function NavBar() {
                     setDropdownOpen(false);
                     signOut();
                   }}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 font-[450]"
                 >
                   Logout
                 </button>
