@@ -1,32 +1,63 @@
 "use client"; // Make this a Client Component
 
 import { signOut, signIn, useSession } from "next-auth/react";
-import StatusCard from "@/components/StatusCard";
+import NavBar from "@/components/NavBar";
+import Image from "next/image";
+import "@/app/globals.css";
+import { useEffect } from "react";
 
 export default function Home() {
+
   const { data: session } = useSession();
+  useEffect(() => {
+    const strikeElement = document.getElementById("stuckText");
+    if(strikeElement) {
+      setTimeout(() => {
+        strikeElement.classList.add("change-color");
+      }, 500)
+    }
+  }, []);
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen">
-      {session ? (
-        <div>
-          <h1>Welcome, {session.user?.name}</h1>
-          <button
-            className="mt-4 px-6 py-2 bg-red-500 text-white rounded-md"
-            onClick={() => signOut()}
-          >
-            Sign Out
-          </button>
+    <>
+      <NavBar></NavBar>
+      <div className="flex w-screen">
+        <div className="w-[50vw] h-screen flex justify-center items-center">
+          <Image
+            src="/printer.webp"
+            alt="printer"
+            width={700}
+            height={700}
+            className="h-auto w-auto py-[13rem] px-[10rem] opacity-90 animate-slowJump"
+          ></Image>
         </div>
-      ) : (
-        <button
-          className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-md"
-          onClick={() => signIn("google")}
-        >
-          Sign In with Google
-        </button>
-      )}
-      <StatusCard name="Mumbai Stationary" status="Online" pages={3} />
-    </main>
+
+        <div className="w-[50vw] h-screen flex flex-col items-center justify-center content-center">
+          <div>
+            <h1 className="text-5xl font-bold">
+              Push.&nbsp;&nbsp;&nbsp;Pay.&nbsp;&nbsp;&nbsp;Pick-Up.
+            </h1>
+          </div>
+          <div className="flex items-center justify-center text-4xl font-[300] gap-5 mt-4">
+            <span
+              id="stuckText"
+              className="animate-strike text-red-400 text-[29px] font-bold"
+            >
+              Stuck in line?
+            </span>{" "}
+            <span className="font-[500]">&nbsp;Use </span>{" "}
+            <Image
+              src="/pexl-logo.svg"
+              alt="PEXL"
+              width={1}
+              height={50}
+              style={{ height: "60px", width: "auto" }}
+              className="mt-[0.4rem]"
+            />
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </>
   );
 }
