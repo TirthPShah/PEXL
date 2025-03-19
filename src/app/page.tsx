@@ -119,10 +119,10 @@ export default function Home() {
           <div className="mt-8 cursor-pointer">
             <button
               onClick={() => signIn("google")}
-              className="flex items-center justify-center gap-3 px-6 py-3 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-sm"
+              className="flex items-center justify-center gap-3 px-6 py-3 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors duration-200 cursor-pointer shadow-sm"
             >
-              <Image src="/google.svg" alt="Google" width={18} height={18} />
-              <span className="font-medium">Sign in with Google</span>
+              <Image src="/google.svg" alt="Google" width={18} height={18} className="cursor-pointer"/>
+              <span className="font-medium cursor-pointer">Sign in with Google</span>
             </button>
           </div>
         </div>
