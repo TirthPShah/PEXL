@@ -1,0 +1,18 @@
+{
+  "name": "PEXL - Print Documents",
+  "short_name": "PEXL",
+  "description": "Easy document printing service",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/pexl-favico.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "orientation": "portrait",
+  "prefer_related_applications": false
+}
