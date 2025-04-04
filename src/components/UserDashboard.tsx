@@ -104,6 +104,7 @@ export default function UserDashboard({
       file: undefined, // Remove the File object as it can't be serialized
     }));
     localStorage.setItem("printFiles", JSON.stringify(filesToStore));
+    // Change from /instructions to /stationary
     router.push("/stationary");
   };
 

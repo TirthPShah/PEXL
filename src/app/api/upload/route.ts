@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     try {
       console.log("Connecting to MongoDB...");
       const client = await clientPromise;
-      const db = client.db("pexl");
+      const db = client.db("pexl_files");
       const bucket = new GridFSBucket(db, {
         bucketName: "uploads",
       });
