@@ -8,6 +8,7 @@ interface StatusCardProps {
   pages?: number;
   bwPrice?: number;
   colorPrice?: number;
+  location?: string;
 }
 
 export default function StatusCard({
@@ -16,6 +17,8 @@ export default function StatusCard({
   pages,
   bwPrice,
   colorPrice,
+  location,
+
 }: StatusCardProps) {
   return (
     <Card className="relative w-full  p-4 flex justify-between bg-white rounded-2xl border border-gray-300 cursor-pointer">
@@ -26,10 +29,18 @@ export default function StatusCard({
         {/* Pricing Information */}
         <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1 mb-1">
           {bwPrice !== undefined && (
-            <span className="font-medium">B&W: ₹{bwPrice}/page</span>
+            <span className="font-medium">B&W: ₹{bwPrice}/sheet</span>
           )}
           {colorPrice !== undefined && (
-            <span className="font-medium">Color: ₹{colorPrice}/page</span>
+            <span className="font-medium">Color: ₹{colorPrice}/sheet</span>
+          )}
+        </div>
+
+        <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1 mb-1">
+          {location && (
+            <span className="font-medium">
+              Location: {location}
+            </span>
           )}
         </div>
 
@@ -53,7 +64,7 @@ export default function StatusCard({
       {/* Right Side: Badge (Only if status is "Online") */}
       {status === "Online" && pages !== undefined && (
         <div className="absolute top-6 right-4">
-          <Badge className="bg-gray-200 text-gray-900 px-4 py-2 mt-4 rounded-lg text-sm font-medium">
+          <Badge className="bg-gray-200 text-gray-900 px-4 py-2 mt-auto rounded-lg text-sm font-medium">
             {pages} pages in queue
           </Badge>
         </div>

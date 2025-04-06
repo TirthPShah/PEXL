@@ -42,10 +42,27 @@ export default function StationaryPage() {
   }
 
   const handleShopSelect = (shopId: string) => {
-    // Save selected shop to local storage
-    localStorage.setItem("selectedShop", shopId);
-    // Navigate to checkout
-    router.push("/checkout");
+    // Find the selected shop
+    const selectedShop = shops.find((shop) => shop._id?.toString() === shopId);
+
+    if (selectedShop) {
+      // Save complete shop details to localStorage
+      localStorage.setItem(
+        "selectedShop",
+        JSON.stringify({
+          id: selectedShop._id?.toString(),
+          name: selectedShop.name,
+          priceBW: selectedShop.priceBW,
+          priceColor: selectedShop.priceColor,
+          status: selectedShop.status,
+          location: selectedShop.location,
+          contact: selectedShop.contact,
+        })
+      );
+    }
+
+    // Navigate to instructions
+    router.push("/instructions");
   };
 
   return (
@@ -66,7 +83,8 @@ export default function StationaryPage() {
                 status={shop.status === "online" ? "Online" : "Offline"}
                 bwPrice={shop.priceBW}
                 colorPrice={shop.priceColor}
-                pages={0} // You might want to fetch the queue size from another API
+                location={shop.location}
+                pages={0}
               />
             </div>
           ))}
@@ -74,9 +92,7 @@ export default function StationaryPage() {
 
         {shops.length === 0 && (
           <div className="mt-8 p-6 bg-gray-50 rounded-lg text-center">
-            <p className="text-gray-500">
-              No shops available at the moment.
-            </p>
+            <p className="text-gray-500">No shops available at the moment.</p>
           </div>
         )}
       </div>

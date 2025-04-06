@@ -2,23 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { Collection, Document, GridFSBucket } from "mongodb";
+import { GridFSBucket } from "mongodb";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
-
-interface FileDocument extends Document {
-  filename: string;
-  contentType: string;
-  size: number;
-  uploadDate: Date;
-  userId: string | undefined;
-  metadata: {
-    originalName: string;
-    size: number;
-    type: string;
-    userId: string | undefined;
-    pageCount?: number;
-  };
-}
 
 export async function POST(req: NextRequest) {
   try {
