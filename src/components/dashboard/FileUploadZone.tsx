@@ -22,14 +22,14 @@ export function FileUploadZone({
   onUploadComplete,
 }: FileUploadZoneProps) {
   const onDrop = async (acceptedFiles: File[]) => {
-    // Generate a temporary client-side ID that will be replaced with MongoDB ID after upload
+    // Generate a temporary client-side ID that will be used for tracking until we get the MongoDB ID
     const newFiles = acceptedFiles.map((file) => ({
       name: file.name || "Unnamed File",
       size: file.size || 0,
       type: file.type || "application/octet-stream",
       progress: 0,
       status: "uploading" as const,
-      id: Math.random().toString(36).substring(7), // Temporary ID that will be replaced
+      id: `temp-${Math.random().toString(36).substring(7)}`, // Temporary ID with 'temp-' prefix
       file: file,
     }));
 
@@ -65,10 +65,10 @@ export function FileUploadZone({
                 const response = JSON.parse(xhr.responseText);
                 console.log("Upload response:", response);
                 if (response.success && response.fileId && onUploadComplete) {
-                  // Pass the MongoDB ObjectId as the serverId
+                  // Pass the MongoDB ObjectId and update the file ID
                   onUploadComplete(
-                    fileData.id,
-                    response.fileId.toString(),
+                    fileData.id, // Original temp ID for tracking
+                    response.fileId.toString(), // MongoDB ObjectId
                     response.file.pageCount
                   );
                 } else {

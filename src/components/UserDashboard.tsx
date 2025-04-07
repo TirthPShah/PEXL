@@ -77,14 +77,13 @@ export default function UserDashboard({
   );
 
   const handleUploadComplete = useCallback(
-    (fileId: string, serverId: string, pageCount?: number) => {
+    (tempFileId: string, mongoDbId: string, pageCount?: number) => {
       setFiles((prev) => {
         const newFiles = prev.map((f) =>
-          f.id === fileId
+          f.id === tempFileId
             ? {
                 ...f,
-                serverId, // Store the MongoDB ObjectId as serverId
-                id: serverId, // Update the temporary id with the MongoDB ObjectId
+                serverId: mongoDbId, // Store the MongoDB ObjectId as serverId
                 status: "completed" as const,
                 pageCount: pageCount || 1, // Default to 1 if pageCount is not provided
               }
