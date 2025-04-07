@@ -57,6 +57,7 @@ export default function StationaryPage() {
           status: selectedShop.status,
           location: selectedShop.location,
           contact: selectedShop.contact,
+          ownerMail: selectedShop.ownerMail,
         })
       );
     }

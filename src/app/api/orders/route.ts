@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      orderId: result.insertedId.toString(),
+      orderId: result.insertedId.toHexString(),
     });
   } catch (error) {
     console.error("Failed to create order:", error);

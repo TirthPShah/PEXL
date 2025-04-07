@@ -8,6 +8,7 @@ export interface StationeryShop {
   status: "online" | "offline";
   priceBW: number;
   priceColor: number;
+  ownerMail: string;
 }
 
 export interface StationeryOwner {

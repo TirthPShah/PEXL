@@ -84,7 +84,7 @@ export function FileItem({ file }: FileItemProps) {
               checked={isDoubleSided}
               onCheckedChange={setIsDoubleSided}
               className={`w-[42px] h-[25px] rounded-full relative outline-none cursor-pointer transition-colors duration-200 ${
-                isDoubleSided ? "bg-green-600" : "bg-orange-500"
+                isDoubleSided ? "bg-green-600" : "bg-gray-200"
               }`}
             >
               <Switch.Thumb className="block w-[21px] h-[21px] bg-white rounded-full transition-transform duration-200 translate-x-0.5 will-change-transform data-[state=checked]:translate-x-[19px] shadow-lg" />

@@ -18,6 +18,7 @@ interface SelectedShop {
   status: string;
   location: string;
   contact: string;
+  ownerMail: string;
 }
 
 export default function CheckoutPage() {
@@ -95,6 +96,7 @@ export default function CheckoutPage() {
         shop: {
           id: selectedShop.id,
           name: selectedShop.name,
+          ownerMail: selectedShop.ownerMail,
         },
         files: files.map((file) => ({
           name: file.name,

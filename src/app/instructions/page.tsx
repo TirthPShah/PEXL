@@ -17,6 +17,7 @@ interface SelectedShop {
   status: string;
   location: string;
   contact: string;
+  ownerMail: string;
 }
 
 export default function InstructionsPage() {

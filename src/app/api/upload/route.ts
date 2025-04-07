@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
         });
       });
 
+      console.log("File uploaded with id:", uploadStream.id.toHexString());
+
       return NextResponse.json({
         success: true,
         fileId: uploadStream.id,
