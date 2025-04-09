@@ -83,6 +83,7 @@ export default function UserDashboard({
           f.id === tempFileId
             ? {
                 ...f,
+                tempId: tempFileId,
                 serverId: mongoDbId, // Store the MongoDB ObjectId as serverId
                 status: "completed" as const,
                 pageCount: pageCount || 1, // Default to 1 if pageCount is not provided

@@ -43,7 +43,6 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         console.error("Error parsing PDF:", error);
         // Don't fail the upload if PDF parsing fails
-        // Just continue without page count
       }
     }
 
@@ -70,37 +69,37 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      console.log("Starting GridFS upload...");
-      // Write the file to GridFS
-      uploadStream.write(bytes);
-      uploadStream.end();
-
-      // Wait for the upload to complete
-      await new Promise((resolve, reject) => {
-        uploadStream.on("finish", () => {
-          console.log("GridFS upload completed successfully");
-          resolve(undefined);
-        });
-        uploadStream.on("error", (error) => {
+      // Write the file to GridFS and properly wait for it to finish
+      return new Promise((resolve, reject) => {
+        uploadStream.on('error', (error) => {
           console.error("GridFS upload error:", error);
-          reject(error);
+          reject(NextResponse.json(
+            { error: "Failed to upload file to database" },
+            { status: 500 }
+          ));
         });
+        
+        uploadStream.on('finish', () => {
+          console.log("GridFS upload completed successfully with ID:", uploadStream.id.toHexString());
+          resolve(NextResponse.json({
+            success: true,
+            fileId: uploadStream.id,
+            file: {
+              filename: file.name,
+              contentType: file.type,
+              size: file.size,
+              uploadDate: new Date(),
+              userId: userEmail,
+              pageCount,
+            },
+          }));
+        });
+
+        // Write the file data and end the stream
+        uploadStream.write(bytes);
+        uploadStream.end();
       });
 
-      console.log("File uploaded with id:", uploadStream.id.toHexString());
-
-      return NextResponse.json({
-        success: true,
-        fileId: uploadStream.id,
-        file: {
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-          uploadDate: new Date(),
-          userId: userEmail,
-          pageCount,
-        },
-      });
     } catch (dbError) {
       console.error("Database error:", dbError);
       return NextResponse.json(

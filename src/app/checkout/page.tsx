@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileWithProgress } from "@/types/files";
 import NavBar from "@/components/NavBar";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import PaymentForm from "@/components/PaymentForm";
+
+// Load Stripe outside of component to avoid recreating it on each render
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+);
 
 interface PrintSettings {
   description: string;
@@ -28,9 +36,12 @@ export default function CheckoutPage() {
     null
   );
   const [selectedShop, setSelectedShop] = useState<SelectedShop | null>(null);
+  const [subtotal, setSubtotal] = useState(0);
+  const [platformFee, setPlatformFee] = useState(0);
   const [totalPrice, setTotalPrice] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
 
   useEffect(() => {
     // Retrieve all necessary information from localStorage
@@ -62,8 +73,8 @@ export default function CheckoutPage() {
     setPrintSettings(settings);
     setSelectedShop(shop);
 
-    // Calculate final price with the updated sheet calculation logic
-    const price = parsedFiles.reduce(
+    // Calculate subtotal
+    const subtotal = parsedFiles.reduce(
       (total: number, file: FileWithProgress) => {
         const fileSettings = settings[file.id] || {};
         const basePrice = fileSettings.isBlackAndWhite
@@ -81,66 +92,84 @@ export default function CheckoutPage() {
       0
     );
 
-    setTotalPrice(price);
+    // Calculate platform fee based on the new logic
+    const platformFee = subtotal < 50 ? 50 - subtotal : 5;
+
+    // Add platform fee to calculate final price
+    const finalPrice = subtotal + platformFee;
+
+    setSubtotal(subtotal); // Store subtotal for display
+    setPlatformFee(platformFee); // Store platform fee for display
+    setTotalPrice(finalPrice);
+
+    // Prepare order summary for localStorage
+    const filesDescription = parsedFiles.map((file: FileWithProgress) => ({
+      name: file.name,
+      size: file.size,
+      pageCount: file.pageCount || 1,
+      isBlackAndWhite:
+        settings && settings[file.id]
+          ? settings[file.id].isBlackAndWhite
+          : false,
+      isDoubleSided:
+        settings && settings[file.id] ? settings[file.id].isDoubleSided : true,
+    }));
+
+    // Store in localStorage for the confirmation page
+    const orderSummaryForStorage = {
+      subtotal: subtotal,
+      platformFee: platformFee,
+      totalPrice: finalPrice,
+      fileCount: parsedFiles.length,
+      shopName: shop.name,
+      orderId: `ORDER-${Math.floor(Math.random() * 10000)}`, // Simple order ID generation
+      filesDescription: filesDescription,
+    };
+
+    localStorage.setItem(
+      "orderSummary",
+      JSON.stringify(orderSummaryForStorage)
+    );
   }, [router]);
 
-  const handleSubmitOrder = async () => {
-    if (!selectedShop) return;
+  // Create payment intent when card payment is selected
+  useEffect(() => {
+    if (totalPrice > 0) {
+      createPaymentIntent();
+    }
+  }, [totalPrice]);
 
-    setLoading(true);
-    setError("");
-
+  const createPaymentIntent = async () => {
     try {
-      // Prepare order data
-      const orderData = {
-        shop: {
-          id: selectedShop.id,
-          name: selectedShop.name,
-          ownerMail: selectedShop.ownerMail,
-        },
-        files: files.map((file) => ({
-          name: file.name,
-          id: file.id,
-          pageCount: file.pageCount,
-          isBlackAndWhite:
-            printSettings && printSettings[file.id]
-              ? printSettings[file.id].isBlackAndWhite
-              : false,
-          isDoubleSided:
-            printSettings && printSettings[file.id]
-              ? printSettings[file.id].isDoubleSided
-              : true,
-        })),
-        instructions: printSettings?.description || "",
-        totalPrice: totalPrice,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      };
-
-      // Submit order to API
-      const response = await fetch("/api/orders", {
+      const response = await fetch("/api/create-payment-intent", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(orderData),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: totalPrice,
+          currency: "inr",
+          metadata: {
+            order_id: `ORDER-${Math.floor(Math.random() * 10000)}`,
+            shop_name: selectedShop?.name || "",
+            file_count: files.length,
+          },
+        }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to submit order");
+        throw new Error(data.error || "Failed to create payment");
       }
 
-      // Order successful - redirect to confirmation page
-      const result = await response.json();
-      router.push(`/confirmation?orderId=${result.orderId}`);
+      setClientSecret(data.clientSecret);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "An unknown error occurred"
+        err instanceof Error ? err.message : "Payment initialization failed"
       );
-    } finally {
-      setLoading(false);
+      console.error("Error creating payment intent:", err);
     }
   };
+
 
   if (!selectedShop || !printSettings) {
     return (
@@ -148,7 +177,7 @@ export default function CheckoutPage() {
         <NavBar />
         <div className="pt-25 px-8">
           <div className="max-w-3xl mx-auto text-center py-12">
-            <p>Loading checkout information...</p>
+            <p>{error || "Loading checkout information..."}</p>
           </div>
         </div>
       </>
@@ -220,7 +249,17 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <div className="flex justify-between items-center text-lg font-semibold mt-4">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Subtotal:</span>
+              <span>₹{subtotal.toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Platform charges:</span>
+              <span>₹{platformFee.toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-lg font-semibold mt-3 pt-2 border-t">
               <span>Total:</span>
               <span>₹{totalPrice.toFixed(2)}</span>
             </div>
@@ -232,21 +271,71 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <div className="flex justify-end gap-4 mb-8">
-            <button
-              onClick={() => router.push("/instructions")}
-              className="px-6 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
-              disabled={loading}
-            >
-              Back
-            </button>
-            <button
-              onClick={handleSubmitOrder}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              disabled={loading}
-            >
-              {loading ? "Processing..." : "Place Order"}
-            </button>
+          <div className="bg-white rounded-lg border p-6 mb-6">
+            <h2 className="text-lg font-medium mb-4">Payment Method</h2>
+
+            <div className="flex space-x-4 mb-6">
+              <button
+                className={`px-4 py-2 border rounded-lg flex items-center border-blue-500 bg-blue-50`}
+              >
+                <span className="mr-2">💳</span> Pay with Card
+              </button>
+            </div>
+
+            {(
+              <div className="mb-6">
+                {clientSecret ? (
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                    <PaymentForm
+                      totalAmount={totalPrice}
+                      onPaymentSuccess={() => {
+                        const orderSummary = {
+                          subtotal: subtotal,
+                          platformFee: platformFee,
+                          totalPrice: totalPrice,
+                          fileCount: files.length,
+                          shopName: selectedShop?.name || "",
+                          orderId: `ORDER-${Math.floor(Math.random() * 10000)}`,
+                          filesDescription: files.map((file) => ({
+                            name: file.name,
+                            size: file.size,
+                            pageCount: file.pageCount || 1,
+                            isBlackAndWhite:
+                              printSettings[file.id]?.isBlackAndWhite || false,
+                            isDoubleSided:
+                              printSettings[file.id]?.isDoubleSided || true,
+                          })),
+                          paymentMethod: "card",
+                        };
+
+                        localStorage.setItem(
+                          "orderSummary",
+                          JSON.stringify(orderSummary)
+                        );
+                        router.push("/confirmation");
+                      }}
+                    />
+                  </Elements>
+                ) : (
+                  <div className="flex items-center justify-center p-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>
+                    <span className="ml-2">Loading payment form...</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-4 mt-6">
+              <button
+                type="button"
+                onClick={() => window.history.back()}
+                className="px-6 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={loading}
+              >
+                Back
+              </button>
+
+            </div>
           </div>
         </div>
       </main>
