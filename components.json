@@ -6,7 +6,6 @@
   "tailwind": {
     "config": "",
     "css": "src/app/globals.css",
-    "baseColor": "zinc",
     "baseColor": "zinc", // Changed form "slate" to "zinc"
     "cssVariables": true,
     "prefix": ""
