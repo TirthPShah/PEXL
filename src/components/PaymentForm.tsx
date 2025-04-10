@@ -18,47 +18,52 @@ export default function PaymentForm({
 }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentError, setPaymentError] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!stripe || !elements) {
-      // Stripe.js hasn't loaded yet. Make sure to disable form submission until Stripe.js has loaded.
+      console.log("Stripe.js hasn't loaded yet");
       return;
     }
 
-    setIsProcessing(true);
-    setPaymentError("");
+    setProcessing(true);
+    setError(null);
 
     try {
-      // Confirm the payment with Stripe
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/confirmation`,
-        },
-        redirect: "if_required",
-      });
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        throw submitError;
+      }
 
-      if (error) {
-        // Show error to your customer
-        setPaymentError(error.message || "An error occurred during payment");
-        setIsProcessing(false);
-      } else if (paymentIntent && paymentIntent.status === "succeeded") {
-        // Payment successful
-        setIsProcessing(false);
+      // For the purpose of this implementation, we'll simulate successful payment
+      // and call onPaymentSuccess directly instead of redirecting.
+      // In a real implementation, Stripe would redirect to the return_url.
+      const { error: confirmError, paymentIntent } =
+        await stripe.confirmPayment({
+          elements,
+          redirect: "if_required", // Change from 'always' to 'if_required'
+        });
+
+      if (confirmError) {
+        throw confirmError;
+      }
+
+      // If we get here, the payment was successful
+      if (paymentIntent && paymentIntent.status === "succeeded") {
+        // Call the onPaymentSuccess callback to handle order creation and redirect
         onPaymentSuccess();
       } else {
-        // Other unexpected state
-        setPaymentError("Something went wrong with your payment");
-        setIsProcessing(false);
+        // Let Stripe handle any redirects as needed
+        console.log("Payment requires additional steps");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Payment error:", err);
-      setPaymentError("An unexpected error occurred");
-      setIsProcessing(false);
+      setError(err.message || "An error occurred during payment");
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -68,9 +73,9 @@ export default function PaymentForm({
         <PaymentElement />
       </div>
 
-      {paymentError && (
+      {error && (
         <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4">
-          {paymentError}
+          {error}
         </div>
       )}
 
@@ -80,10 +85,10 @@ export default function PaymentForm({
 
       <button
         type="submit"
-        disabled={!stripe || isProcessing}
+        disabled={!stripe || processing}
         className="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
       >
-        {isProcessing ? (
+        {processing ? (
           <div className="flex items-center justify-center">
             <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
             Processing...

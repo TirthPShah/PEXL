@@ -8,7 +8,6 @@ import {
   FileText,
   Clock,
   CheckCircle,
-  AlertCircle,
   ChevronDown,
   ChevronUp,
   Download,
@@ -137,35 +136,37 @@ export default function ShopInterface() {
   const markOrderAsComplete = async (orderId: string) => {
     try {
       // Find the order to be completed
-      const orderToComplete = orders.find(order => order._id === orderId);
-      
+      const orderToComplete = orders.find((order) => order._id === orderId);
+
       if (!orderToComplete) {
         toast.error("Order not found");
         return;
       }
-      
+
       // Set loading state if needed
       setLoading(true);
-      
+
       // Make API call to mark order as completed
       const response = await fetch(`/api/orders/complete`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           orderId: orderId,
-          orderData: orderToComplete
+          orderData: orderToComplete,
         }),
       });
-      
+
       if (!response.ok) {
-        throw new Error(`Failed to mark order as complete: ${response.statusText}`);
+        throw new Error(
+          `Failed to mark order as complete: ${response.statusText}`
+        );
       }
-      
+
       // Update local state - remove from active orders
-      setOrders(orders.filter(order => order._id !== orderId));
-      
+      setOrders(orders.filter((order) => order._id !== orderId));
+
       toast.success("Order marked as complete successfully");
     } catch (error) {
       console.error("Error marking order as complete:", error);
@@ -277,18 +278,18 @@ export default function ShopInterface() {
                                 {file.name}
                               </p>
                               <div className="flex items-center space-x-3 text-sm text-gray-600">
-                                <span>
+                                <span key="pageCount">
                                   {file.pageCount}{" "}
                                   {file.pageCount === 1 ? "page" : "pages"}
                                 </span>
-                                <span>•</span>
-                                <span>
+                                <span key="bullet1">•</span>
+                                <span key="printMode">
                                   {file.isBlackAndWhite
                                     ? "Black & White"
                                     : "Color"}
                                 </span>
-                                <span>•</span>
-                                <span>
+                                <span key="bullet2">•</span>
+                                <span key="sided">
                                   {file.isDoubleSided
                                     ? "Double-sided"
                                     : "Single-sided"}
@@ -337,10 +338,6 @@ export default function ShopInterface() {
                         >
                           <CheckCircle className="h-5 w-5" />
                           <span>Mark as Complete</span>
-                        </button>
-                        <button className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors">
-                          <AlertCircle className="h-5 w-5" />
-                          <span>Contact Customer</span>
                         </button>
                       </div>
                     </div>

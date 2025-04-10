@@ -218,7 +218,7 @@ export default function ConfirmationPage() {
 
               <div className="flex justify-center mt-6">
                 <Link
-                  href="/dashboard"
+                  href="/"
                   className="flex items-center text-blue-600 hover:text-blue-800"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />

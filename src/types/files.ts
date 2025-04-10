@@ -8,4 +8,5 @@ export interface FileWithProgress {
   file?: File;
   serverId?: string; // MongoDB ObjectId after successful upload
   pageCount?: number; // Number of pages in the document
+  tempId?: string
 }
