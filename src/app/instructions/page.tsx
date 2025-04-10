@@ -97,25 +97,25 @@ export default function InstructionsPage() {
     router.push("/checkout");
   };
 
-  const handlePrintSettingChange = (
-    fileId: string,
-    setting: keyof Pick<PrintSettingsItem, "isB_W" | "isDoubleSided">,
-    value: boolean
-  ) => {
-    const settings: PrintSettingsItem[] = JSON.parse(
-      localStorage.getItem("printSettingsArray") || "[]"
-    );
+  // const handlePrintSettingChange = (
+  //   fileId: string,
+  //   setting: keyof Pick<PrintSettingsItem, "isB_W" | "isDoubleSided">,
+  //   value: boolean
+  // ) => {
+  //   const settings: PrintSettingsItem[] = JSON.parse(
+  //     localStorage.getItem("printSettingsArray") || "[]"
+  //   );
 
-    const updatedSettings = settings.map((item) => {
-      if (item.serverId === fileId || item.tempId === fileId) {
-        return { ...item, [setting]: value };
-      }
-      return item;
-    });
+  //   const updatedSettings = settings.map((item) => {
+  //     if (item.serverId === fileId || item.tempId === fileId) {
+  //       return { ...item, [setting]: value };
+  //     }
+  //     return item;
+  //   });
 
-    localStorage.setItem("printSettingsArray", JSON.stringify(updatedSettings));
-    // Recalculate total price...
-  };
+  //   localStorage.setItem("printSettingsArray", JSON.stringify(updatedSettings));
+  //   // Recalculate total price...
+  // };
 
   return (
     <>

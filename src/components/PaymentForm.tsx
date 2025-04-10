@@ -59,7 +59,7 @@ export default function PaymentForm({
         // Let Stripe handle any redirects as needed
         console.log("Payment requires additional steps");
       }
-    } catch (err: any) {
+    } catch (err: string | any) {
       console.error("Payment error:", err);
       setError(err.message || "An error occurred during payment");
     } finally {

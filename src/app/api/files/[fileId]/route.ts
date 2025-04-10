@@ -44,7 +44,7 @@ export async function GET(
     const chunks: Buffer[] = [];
     
     // Return a streaming response
-    return new Promise<NextResponse>((resolve, reject) => {
+    return new Promise<NextResponse>((resolve) => {
       downloadStream.on("data", (chunk) => {
         chunks.push(Buffer.from(chunk));
       });
