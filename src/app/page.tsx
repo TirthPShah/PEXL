@@ -1,15 +1,18 @@
 "use client"; // Make this a Client Component
 
-import { signOut, signIn, useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import NavBar from "@/components/NavBar";
 import Image from "next/image";
 import "@/app/globals.css";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import UserDashboard from "@/components/UserDashboard";
 import Link from "next/link";
+import ShopInterface from "@/components/shop/ShopInterface";
 
 export default function Home() {
   const { data: session } = useSession();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const strikeElement = document.getElementById("stuckText");
@@ -20,12 +23,48 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    async function checkUserRole() {
+      if (session?.user?.email) {
+        try {
+          const response = await fetch(`/api/user-role?email=${encodeURIComponent(session.user.email)}`);
+          const data = await response.json();
+          setUserRole(data.role);
+        } catch (error) {
+          console.error("Failed to fetch user role:", error);
+          setUserRole("customer"); // Default to customer on error
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    }
+
+    if (session) {
+      checkUserRole();
+    } else {
+      setLoading(false);
+    }
+  }, [session]);
+
   if (session) {
+    if (loading) {
+      return (
+        <>
+          <NavBar />
+          <div className="flex justify-center items-center h-[80vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
         <NavBar />
         <div className="mb-16">
-        <UserDashboard/>
+          {userRole === "owner" ? <ShopInterface /> : <UserDashboard />}
         </div>
       </>
     );
@@ -53,6 +92,7 @@ export default function Home() {
           </div>
           <div className="flex items-center justify-center text-4xl font-[300] gap-5 mt-4">
             <span
+              id="stuckText"
               className="text-green-400"
               style={{
                 textDecoration: "line-through",

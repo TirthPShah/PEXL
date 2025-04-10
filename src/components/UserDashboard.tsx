@@ -77,13 +77,14 @@ export default function UserDashboard({
   );
 
   const handleUploadComplete = useCallback(
-    (fileId: string, serverId: string, pageCount?: number) => {
+    (tempFileId: string, mongoDbId: string, pageCount?: number) => {
       setFiles((prev) => {
         const newFiles = prev.map((f) =>
-          f.id === fileId
+          f.id === tempFileId
             ? {
                 ...f,
-                serverId,
+                tempId: tempFileId,
+                serverId: mongoDbId, // Store the MongoDB ObjectId as serverId
                 status: "completed" as const,
                 pageCount: pageCount || 1, // Default to 1 if pageCount is not provided
               }
@@ -99,11 +100,14 @@ export default function UserDashboard({
 
   const handleNextClick = () => {
     // Store files in localStorage to access them on the checkout page
+    // Make sure we use the MongoDB IDs for the files
     const filesToStore = files.map((file) => ({
       ...file,
+      id: file.serverId || file.id, // Use the MongoDB ObjectId (serverId) if available
       file: undefined, // Remove the File object as it can't be serialized
     }));
     localStorage.setItem("printFiles", JSON.stringify(filesToStore));
+    // Change from /instructions to /stationary
     router.push("/stationary");
   };
 
@@ -113,7 +117,7 @@ export default function UserDashboard({
     files.length > 0 && files.every((f) => f.status === "completed");
 
   return (
-    <main className={cn("pt-25 px-8", className)} {...props}>
+    <main className={cn("px-8", className)} {...props}>
       <div className="max-w-7xl mx-auto">
         <UserHeader />
         <div className="max-w-7xl mx-auto mt-9">

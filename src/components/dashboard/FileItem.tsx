@@ -11,14 +11,18 @@ interface FileItemProps {
 
 export function FileItem({ file }: FileItemProps) {
   const [isColor, setIsColor] = useState(false);
+  const [isDoubleSided, setIsDoubleSided] = useState(true);
 
   useEffect(() => {
-    // Store color preference in localStorage
+    // Store color and sides preference in localStorage
     const printSettings = localStorage.getItem("printSettings") || "{}";
     const settings = JSON.parse(printSettings);
-    settings[file.id] = { isBlackAndWhite: !isColor };
+    settings[file.id] = {
+      isBlackAndWhite: !isColor,
+      isDoubleSided: isDoubleSided,
+    };
     localStorage.setItem("printSettings", JSON.stringify(settings));
-  }, [isColor, file.id]);
+  }, [isColor, isDoubleSided, file.id]);
 
   const formatFileSize = (bytes: number): string => {
     if (!bytes || bytes === 0) return "0 Bytes";
@@ -46,23 +50,46 @@ export function FileItem({ file }: FileItemProps) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label
-            className="text-sm font-medium text-gray-700"
-            htmlFor={`color-toggle-${file.id}`}
-          >
-            {!isColor ? "B&W" : "Colour"}
-          </label>
-          <Switch.Root
-            id={`color-toggle-${file.id}`}
-            checked={isColor}
-            onCheckedChange={setIsColor}
-            className={`w-[42px] h-[25px] rounded-full relative outline-none cursor-pointer transition-colors duration-200 ${
-              !isColor ? "bg-black" : "bg-blue-600"
-            }`}
-          >
-            <Switch.Thumb className="block w-[21px] h-[21px] bg-white rounded-full transition-transform duration-200 translate-x-0.5 will-change-transform data-[state=checked]:translate-x-[19px] shadow-lg" />
-          </Switch.Root>
+        <div className="flex items-center gap-4">
+          {/* Color toggle */}
+          <div className="flex items-center gap-2">
+            <label
+              className="text-sm font-medium text-gray-700"
+              htmlFor={`color-toggle-${file.id}`}
+            >
+              {!isColor ? "B&W" : "Colour"}
+            </label>
+            <Switch.Root
+              id={`color-toggle-${file.id}`}
+              checked={isColor}
+              onCheckedChange={setIsColor}
+              className={`w-[42px] h-[25px] rounded-full relative outline-none cursor-pointer transition-colors duration-200 ${
+                !isColor ? "bg-black" : "bg-blue-600"
+              }`}
+            >
+              <Switch.Thumb className="block w-[21px] h-[21px] bg-white rounded-full transition-transform duration-200 translate-x-0.5 will-change-transform data-[state=checked]:translate-x-[19px] shadow-lg" />
+            </Switch.Root>
+          </div>
+
+          {/* Double-sided toggle */}
+          <div className="flex items-center gap-2">
+            <label
+              className="text-sm font-medium text-gray-700"
+              htmlFor={`sides-toggle-${file.id}`}
+            >
+              {isDoubleSided ? "Double" : "Single"}
+            </label>
+            <Switch.Root
+              id={`sides-toggle-${file.id}`}
+              checked={isDoubleSided}
+              onCheckedChange={setIsDoubleSided}
+              className={`w-[42px] h-[25px] rounded-full relative outline-none cursor-pointer transition-colors duration-200 ${
+                isDoubleSided ? "bg-green-600" : "bg-gray-200"
+              }`}
+            >
+              <Switch.Thumb className="block w-[21px] h-[21px] bg-white rounded-full transition-transform duration-200 translate-x-0.5 will-change-transform data-[state=checked]:translate-x-[19px] shadow-lg" />
+            </Switch.Root>
+          </div>
         </div>
       </div>
       {file.status === "uploading" && (

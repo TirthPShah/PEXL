@@ -23,7 +23,7 @@ export async function DELETE(
     }
 
     const client = await clientPromise;
-    const db = client.db("pexl");
+    const db = client.db("pexl_files"); // Updated to match the upload route's database
     const bucket = new GridFSBucket(db, {
       bucketName: "uploads",
     });

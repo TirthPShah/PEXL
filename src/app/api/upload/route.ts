@@ -2,23 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { Collection, Document, GridFSBucket } from "mongodb";
+import { GridFSBucket } from "mongodb";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
-
-interface FileDocument extends Document {
-  filename: string;
-  contentType: string;
-  size: number;
-  uploadDate: Date;
-  userId: string | undefined;
-  metadata: {
-    originalName: string;
-    size: number;
-    type: string;
-    userId: string | undefined;
-    pageCount?: number;
-  };
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,14 +43,13 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         console.error("Error parsing PDF:", error);
         // Don't fail the upload if PDF parsing fails
-        // Just continue without page count
       }
     }
 
     try {
       console.log("Connecting to MongoDB...");
       const client = await clientPromise;
-      const db = client.db("pexl");
+      const db = client.db("pexl_files");
       const bucket = new GridFSBucket(db, {
         bucketName: "uploads",
       });
@@ -85,35 +69,37 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      console.log("Starting GridFS upload...");
-      // Write the file to GridFS
-      uploadStream.write(bytes);
-      uploadStream.end();
-
-      // Wait for the upload to complete
-      await new Promise((resolve, reject) => {
-        uploadStream.on("finish", () => {
-          console.log("GridFS upload completed successfully");
-          resolve(undefined);
-        });
-        uploadStream.on("error", (error) => {
+      // Write the file to GridFS and properly wait for it to finish
+      return new Promise((resolve, reject) => {
+        uploadStream.on('error', (error) => {
           console.error("GridFS upload error:", error);
-          reject(error);
+          reject(NextResponse.json(
+            { error: "Failed to upload file to database" },
+            { status: 500 }
+          ));
         });
+        
+        uploadStream.on('finish', () => {
+          console.log("GridFS upload completed successfully with ID:", uploadStream.id.toHexString());
+          resolve(NextResponse.json({
+            success: true,
+            fileId: uploadStream.id,
+            file: {
+              filename: file.name,
+              contentType: file.type,
+              size: file.size,
+              uploadDate: new Date(),
+              userId: userEmail,
+              pageCount,
+            },
+          }));
+        });
+
+        // Write the file data and end the stream
+        uploadStream.write(bytes);
+        uploadStream.end();
       });
 
-      return NextResponse.json({
-        success: true,
-        fileId: uploadStream.id,
-        file: {
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-          uploadDate: new Date(),
-          userId: userEmail,
-          pageCount,
-        },
-      });
     } catch (dbError) {
       console.error("Database error:", dbError);
       return NextResponse.json(
