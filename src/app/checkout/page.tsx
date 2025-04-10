@@ -33,13 +33,17 @@ interface FileDescription {
   size: string;
 }
 
+interface ItemDescription {
+  description: string;
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [files, setFiles] = useState<FileWithProgress[]>([]);
   const [selectedShop, setSelectedShop] = useState<SelectedShop | null>(null);
   const [clientSecret, setClientSecret] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
   const [totalPrice, setTotalPrice] = useState(0);
   const [subtotal, setSubtotal] = useState(0);
   const [platformCharges, setPlatformCharges] = useState(0);
@@ -172,7 +176,7 @@ export default function CheckoutPage() {
         console.error("Checkout initialization error:", err);
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
-        setLoading(false);
+        // setLoading(false);
       }
     };
 
@@ -188,7 +192,7 @@ export default function CheckoutPage() {
 
       // Find the description if it exists
       const descriptionItem = printSettingsArray.find(
-        (item: any) => item.description
+        (item: ItemDescription) => item.description
       );
       const description = descriptionItem?.description || "";
 

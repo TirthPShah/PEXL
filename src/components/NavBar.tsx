@@ -53,7 +53,7 @@ export default function NavBar() {
       </div>
 
       {/* Middle: Navigation Links */}
-      <nav className="flex space-x-6">
+      {/* <nav className="flex space-x-6">
         <Link href="/pricing" className="hover:text-blue-500 text-lg">
           Pricing
         </Link>
@@ -65,7 +65,7 @@ export default function NavBar() {
             My Orders
           </Link>
         )}
-      </nav>
+      </nav> */}
 
       {/* Right Side: Avatar and Dropdown */}
       <div className="relative cursor-pointer" ref={dropdownRef}>

@@ -6,7 +6,7 @@ import Image from "next/image";
 import "@/app/globals.css";
 import { useEffect, useState } from "react";
 import UserDashboard from "@/components/UserDashboard";
-import Link from "next/link";
+// import Link from "next/link";
 import ShopInterface from "@/components/shop/ShopInterface";
 
 export default function Home() {
