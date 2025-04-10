@@ -8,6 +8,7 @@ import { UserHeader } from "./dashboard/UserHeader";
 import { FileUploadZone } from "./dashboard/FileUploadZone";
 import { FileList } from "./dashboard/FileList";
 import { useRouter } from "next/navigation";
+import { PrintSettingsItem } from "@/types/printSettings";
 
 interface UserDashboardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -79,34 +80,53 @@ export default function UserDashboard({
   const handleUploadComplete = useCallback(
     (tempFileId: string, mongoDbId: string, pageCount?: number) => {
       setFiles((prev) => {
-        const newFiles = prev.map((f) =>
-          f.id === tempFileId
-            ? {
-                ...f,
-                serverId: mongoDbId, // Store the MongoDB ObjectId as serverId
-                status: "completed" as const,
-                pageCount: pageCount || 1, // Default to 1 if pageCount is not provided
+        const updatedFiles = prev.map((f) => {
+          if (f.id === tempFileId) {
+            const settings: PrintSettingsItem[] = JSON.parse(
+              localStorage.getItem("printSettingsArray") || "[]"
+            );
+
+            const updatedSettings = settings.map((setting) => {
+              if (setting.tempId === tempFileId) {
+                return {
+                  ...setting,
+                  serverId: mongoDbId,
+                  pageCount: pageCount || setting.pageCount,
+                };
               }
-            : f
-        );
-        // Check if all files have page counts after updating
-        checkIfAllPagesCount(newFiles);
-        return newFiles;
+              return setting;
+            });
+
+            localStorage.setItem(
+              "printSettingsArray",
+              JSON.stringify(updatedSettings)
+            );
+
+            return {
+              ...f,
+              serverId: mongoDbId,
+              status: "completed" as const,
+              progress: 100,
+              pageCount,
+            };
+          }
+          return f;
+        });
+
+        checkIfAllPagesCount(updatedFiles);
+        return updatedFiles;
       });
     },
     [checkIfAllPagesCount]
   );
 
   const handleNextClick = () => {
-    // Store files in localStorage to access them on the checkout page
-    // Make sure we use the MongoDB IDs for the files
     const filesToStore = files.map((file) => ({
       ...file,
-      id: file.serverId || file.id, // Use the MongoDB ObjectId (serverId) if available
-      file: undefined, // Remove the File object as it can't be serialized
+      id: file.serverId || file.id,
+      file: undefined,
     }));
     localStorage.setItem("printFiles", JSON.stringify(filesToStore));
-    // Change from /instructions to /stationary
     router.push("/stationary");
   };
 

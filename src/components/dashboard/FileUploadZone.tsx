@@ -3,6 +3,7 @@
 import { Upload } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { FileWithProgress } from "@/types/files";
+import { PrintSettingsItem } from "@/types/printSettings";
 
 interface FileUploadZoneProps {
   onFilesAccepted: (files: FileWithProgress[]) => void;
@@ -22,17 +23,33 @@ export function FileUploadZone({
   onUploadComplete,
 }: FileUploadZoneProps) {
   const onDrop = async (acceptedFiles: File[]) => {
-    // Generate a temporary client-side ID that will be used for tracking until we get the MongoDB ID
     const newFiles = acceptedFiles.map((file) => ({
       name: file.name || "Unnamed File",
       size: file.size || 0,
       type: file.type || "application/octet-stream",
       progress: 0,
       status: "uploading" as const,
-      id: `temp-${Math.random().toString(36).substring(7)}`, // Temporary ID with 'temp-' prefix
+      id: `temp-${Math.random().toString(36).substring(7)}`,
       file: file,
     }));
 
+    // Initialize print settings for each new file
+    const existingSettings: PrintSettingsItem[] = JSON.parse(
+      localStorage.getItem("printSettingsArray") || "[]"
+    );
+
+    const updatedSettings = [
+      ...existingSettings,
+      ...newFiles.map((file) => ({
+        tempId: file.id,
+        serverId: undefined,
+        isB_W: false,
+        isDoubleSided: true,
+        pageCount: undefined,
+      })),
+    ];
+
+    localStorage.setItem("printSettingsArray", JSON.stringify(updatedSettings));
     onFilesAccepted(newFiles);
 
     // Upload each file
@@ -65,6 +82,27 @@ export function FileUploadZone({
                 const response = JSON.parse(xhr.responseText);
                 console.log("Upload response:", response);
                 if (response.success && response.fileId && onUploadComplete) {
+                  // Update the print settings with server ID and page count
+                  const currentSettings: PrintSettingsItem[] = JSON.parse(
+                    localStorage.getItem("printSettingsArray") || "[]"
+                  );
+
+                  const updatedSettings = currentSettings.map((setting) => {
+                    if (setting.tempId === fileData.id) {
+                      return {
+                        ...setting,
+                        serverId: response.fileId.toString(),
+                        pageCount: response.file.pageCount || 1,
+                      };
+                    }
+                    return setting;
+                  });
+
+                  localStorage.setItem(
+                    "printSettingsArray",
+                    JSON.stringify(updatedSettings)
+                  );
+
                   // Pass the MongoDB ObjectId and update the file ID
                   onUploadComplete(
                     fileData.id, // Original temp ID for tracking
@@ -112,12 +150,6 @@ export function FileUploadZone({
     onDrop,
     accept: {
       "application/pdf": [".pdf"],
-      "application/msword": [".doc"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        [".docx"],
-      "application/vnd.ms-powerpoint": [".ppt"],
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-        [".pptx"],
       "image/*": [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".webp"],
     },
     maxSize: 50 * 1024 * 1024, // 50MB
@@ -146,8 +178,7 @@ export function FileUploadZone({
         <p className="text-lg font-medium">Upload files to be printed</p>
         <p className="text-gray-500 mt-2">Maximum file size: 50 MB</p>
         <p className="text-gray-500">
-          Accepted formats: PDF, DOC, DOCX, PPT, PPTX, PNG, JPG, JPEG, GIF, BMP,
-          TIFF, WEBP
+          Accepted formats: PDF, PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP
         </p>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { Upload } from "lucide-react";
 import { FileWithProgress } from "@/types/files";
+import { PrintSettingsItem } from "@/types/printSettings";
 import * as Switch from "@radix-ui/react-switch";
 import { useState, useEffect } from "react";
 
@@ -13,8 +14,53 @@ export function FileItem({ file }: FileItemProps) {
   const [isColor, setIsColor] = useState(false);
   const [isDoubleSided, setIsDoubleSided] = useState(true);
 
+  // Load initial settings from printSettingsArray
   useEffect(() => {
-    // Store color and sides preference in localStorage
+    const loadSettings = () => {
+      const settingsArray: PrintSettingsItem[] = JSON.parse(
+        localStorage.getItem("printSettingsArray") || "[]"
+      );
+
+      // Find the settings for this file by either tempId or serverId
+      const fileSettings = settingsArray.find(
+        (setting) => setting.tempId === file.id || setting.serverId === file.id
+      );
+
+      if (fileSettings) {
+        // Update state based on the found settings
+        // Note: isColor is the opposite of isB_W
+        setIsColor(!fileSettings.isB_W);
+        setIsDoubleSided(fileSettings.isDoubleSided);
+      }
+    };
+
+    loadSettings();
+  }, [file.id]);
+
+  // Update settings when toggles change
+  useEffect(() => {
+    // Update the new printSettingsArray format
+    const settingsArray: PrintSettingsItem[] = JSON.parse(
+      localStorage.getItem("printSettingsArray") || "[]"
+    );
+
+    const updatedSettingsArray = settingsArray.map((setting) => {
+      if (setting.tempId === file.id || setting.serverId === file.id) {
+        return {
+          ...setting,
+          isB_W: !isColor, // Convert isColor to isB_W (they're opposites)
+          isDoubleSided: isDoubleSided,
+        };
+      }
+      return setting;
+    });
+
+    localStorage.setItem(
+      "printSettingsArray",
+      JSON.stringify(updatedSettingsArray)
+    );
+
+    // Also maintain the old format for backward compatibility
     const printSettings = localStorage.getItem("printSettings") || "{}";
     const settings = JSON.parse(printSettings);
     settings[file.id] = {
@@ -84,7 +130,7 @@ export function FileItem({ file }: FileItemProps) {
               checked={isDoubleSided}
               onCheckedChange={setIsDoubleSided}
               className={`w-[42px] h-[25px] rounded-full relative outline-none cursor-pointer transition-colors duration-200 ${
-                isDoubleSided ? "bg-green-600" : "bg-gray-200"
+                isDoubleSided ? "bg-green-600" : "bg-blue-50"
               }`}
             >
               <Switch.Thumb className="block w-[21px] h-[21px] bg-white rounded-full transition-transform duration-200 translate-x-0.5 will-change-transform data-[state=checked]:translate-x-[19px] shadow-lg" />

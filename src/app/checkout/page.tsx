@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import { FileWithProgress } from "@/types/files";
+import { PrintSettingsItem } from "@/types/printSettings";
 import NavBar from "@/components/NavBar";
+import PaymentForm from "@/components/PaymentForm";
+import { calculatePlatformCharges } from "@/lib/calculatePlatformCharges";
 
-interface PrintSettings {
-  description: string;
-  [key: string]: any;
-}
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+);
 
 interface SelectedShop {
   id: string;
@@ -21,103 +25,203 @@ interface SelectedShop {
   ownerMail: string;
 }
 
+interface FileDescription {
+  name: string;
+  isBlackAndWhite: boolean;
+  isDoubleSided: boolean;
+  pageCount: number;
+  size: string;
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [files, setFiles] = useState<FileWithProgress[]>([]);
-  const [printSettings, setPrintSettings] = useState<PrintSettings | null>(
-    null
-  );
   const [selectedShop, setSelectedShop] = useState<SelectedShop | null>(null);
+  const [clientSecret, setClientSecret] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [totalPrice, setTotalPrice] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [subtotal, setSubtotal] = useState(0);
+  const [platformCharges, setPlatformCharges] = useState(0);
+  const [orderId, setOrderId] = useState("");
 
   useEffect(() => {
-    // Retrieve all necessary information from localStorage
-    const savedFiles = localStorage.getItem("printFiles");
-    const savedSettings = localStorage.getItem("printSettings");
-    const savedShop = localStorage.getItem("selectedShop");
+    const initialize = async () => {
+      try {
+        // Load saved data
+        const savedFiles = localStorage.getItem("printFiles");
+        const savedShop = localStorage.getItem("selectedShop");
+        const printSettingsArray = JSON.parse(
+          localStorage.getItem("printSettingsArray") || "[]"
+        );
 
-    // Validate required data is present
-    if (!savedFiles) {
-      router.push("/");
-      return;
-    }
+        if (!savedFiles || !savedShop) {
+          router.push("/");
+          return;
+        }
 
-    if (!savedShop) {
-      router.push("/stationary");
-      return;
-    }
+        const parsedFiles = JSON.parse(savedFiles);
+        const shop = JSON.parse(savedShop);
 
-    if (!savedSettings) {
-      router.push("/instructions");
-      return;
-    }
+        setFiles(parsedFiles);
+        setSelectedShop(shop);
 
-    const parsedFiles = JSON.parse(savedFiles);
-    const settings = JSON.parse(savedSettings);
-    const shop = JSON.parse(savedShop);
+        // Calculate subtotal first
+        const calculatedSubtotal = parsedFiles.reduce(
+          (total: number, file: FileWithProgress) => {
+            const fileSettings = printSettingsArray.find(
+              (setting: PrintSettingsItem) =>
+                setting.serverId === file.id || setting.tempId === file.id
+            );
 
-    setFiles(parsedFiles);
-    setPrintSettings(settings);
-    setSelectedShop(shop);
+            if (!fileSettings) return total;
 
-    // Calculate final price with the updated sheet calculation logic
-    const price = parsedFiles.reduce(
-      (total: number, file: FileWithProgress) => {
-        const fileSettings = settings[file.id] || {};
-        const basePrice = fileSettings.isBlackAndWhite
-          ? shop.priceBW
-          : shop.priceColor;
-        const pageCount = file.pageCount || 1;
+            const basePrice = fileSettings.isB_W
+              ? shop.priceBW
+              : shop.priceColor;
+            const pageCount = fileSettings.pageCount || 1;
+            const sheetsNeeded = fileSettings.isDoubleSided
+              ? Math.ceil(pageCount / 2)
+              : pageCount;
 
-        // Calculate sheets based on whether it's single or double sided
-        const sheetsNeeded = fileSettings.isDoubleSided
-          ? Math.ceil(pageCount / 2)
-          : pageCount;
+            return total + basePrice * sheetsNeeded;
+          },
+          0
+        );
 
-        return total + basePrice * sheetsNeeded;
-      },
-      0
-    );
+        // Calculate platform charges
+        const charges = calculatePlatformCharges(calculatedSubtotal);
+        const totalAmount = calculatedSubtotal + charges;
 
-    setTotalPrice(price);
+        setSubtotal(calculatedSubtotal);
+        setPlatformCharges(charges);
+        setTotalPrice(totalAmount);
+
+        // Generate random order ID (in production, this would come from your backend)
+        const randomOrderId = Math.random().toString(36).substring(2, 10);
+        setOrderId(randomOrderId);
+
+        // IMPORTANT: Save order summary to localStorage BEFORE payment processing
+        // Create file descriptions for the receipt
+        const filesDescription: FileDescription[] = parsedFiles.map(
+          (file: FileWithProgress) => {
+            const fileSettings = printSettingsArray.find(
+              (setting: PrintSettingsItem) =>
+                setting.serverId === file.id || setting.tempId === file.id
+            ) || { isB_W: false, isDoubleSided: true, pageCount: 1 };
+
+            // Convert file size to readable format
+            const formatFileSize = (bytes: number): string => {
+              if (!bytes || bytes === 0) return "0 Bytes";
+              const k = 1024;
+              const sizes = ["Bytes", "KB", "MB", "GB"];
+              const i = Math.floor(Math.log(bytes) / Math.log(k));
+              return (
+                parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+              );
+            };
+
+            return {
+              name: file.name,
+              isBlackAndWhite: fileSettings.isB_W,
+              isDoubleSided: fileSettings.isDoubleSided,
+              pageCount: fileSettings.pageCount || 1,
+              size: formatFileSize(file.size),
+            };
+          }
+        );
+
+        // Create and save the order summary
+        const orderSummary = {
+          subtotal: calculatedSubtotal,
+          platformFee: charges,
+          totalPrice: totalAmount,
+          fileCount: parsedFiles.length,
+          shopName: shop.name,
+          orderId: randomOrderId,
+          filesDescription: filesDescription,
+          paymentMethod: "card", // Since this is the Stripe checkout
+        };
+
+        // Save the complete order summary to localStorage
+        localStorage.setItem("orderSummary", JSON.stringify(orderSummary));
+
+        // Create payment intent with total amount including platform charges
+        console.log("Creating payment intent for amount:", totalAmount);
+        const response = await fetch("/api/create-payment-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: totalAmount }),
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Payment intent creation failed: ${response.statusText}`
+          );
+        }
+
+        const data = await response.json();
+        console.log("Payment intent created:", data);
+
+        if (!data.clientSecret) {
+          throw new Error("No client secret received");
+        }
+
+        setClientSecret(data.clientSecret);
+      } catch (err) {
+        console.error("Checkout initialization error:", err);
+        setError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initialize();
   }, [router]);
 
-  const handleSubmitOrder = async () => {
-    if (!selectedShop) return;
-
-    setLoading(true);
-    setError("");
-
+  const handlePaymentSuccess = async () => {
     try {
+      // Create order in the database
+      const printSettingsArray = JSON.parse(
+        localStorage.getItem("printSettingsArray") || "[]"
+      );
+
+      // Find the description if it exists
+      const descriptionItem = printSettingsArray.find(
+        (item: any) => item.description
+      );
+      const description = descriptionItem?.description || "";
+
       // Prepare order data
+      const ownerMail = selectedShop?.ownerMail ? selectedShop.ownerMail : "N/A";
+
       const orderData = {
-        shop: {
-          id: selectedShop.id,
-          name: selectedShop.name,
-          ownerMail: selectedShop.ownerMail,
-        },
-        files: files.map((file) => ({
-          name: file.name,
-          id: file.id,
-          pageCount: file.pageCount,
-          isBlackAndWhite:
-            printSettings && printSettings[file.id]
-              ? printSettings[file.id].isBlackAndWhite
-              : false,
-          isDoubleSided:
-            printSettings && printSettings[file.id]
-              ? printSettings[file.id].isDoubleSided
-              : true,
-        })),
-        instructions: printSettings?.description || "",
+        orderId: orderId,
+        shop: selectedShop,
+        ownerMail: ownerMail,
+        files: files.map((file) => {
+          const fileSettings = printSettingsArray.find(
+        (setting: PrintSettingsItem) =>
+          setting.serverId === file.id || setting.tempId === file.id
+          ) || { isB_W: false, isDoubleSided: true };
+
+          return {
+        id: file.serverId || file.id,
+        name: file.name,
+        pageCount: file.pageCount || 1,
+        isBlackAndWhite: fileSettings.isB_W,
+        isDoubleSided: fileSettings.isDoubleSided,
+          };
+        }),
+        subtotal: subtotal,
+        platformFee: platformCharges,
         totalPrice: totalPrice,
-        status: "pending",
-        createdAt: new Date().toISOString(),
+        instructions: description,
+        paymentMethod: "card",
+        status: "active",
       };
 
-      // Submit order to API
+      // Send order to API
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: {
@@ -127,29 +231,35 @@ export default function CheckoutPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to submit order");
+        console.error("Failed to create order:", await response.text());
+      } else {
+        const result = await response.json();
+        // Update orderId with the one from the database
+        if (result.orderId) {
+          // Update the order summary with the real order ID
+          const orderSummary = JSON.parse(
+            localStorage.getItem("orderSummary") || "{}"
+          );
+          orderSummary.orderId = result.orderId;
+          localStorage.setItem("orderSummary", JSON.stringify(orderSummary));
+        }
       }
 
-      // Order successful - redirect to confirmation page
-      const result = await response.json();
-      router.push(`/confirmation?orderId=${result.orderId}`);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unknown error occurred"
-      );
-    } finally {
-      setLoading(false);
+      // Redirect to confirmation page
+      router.push("/confirmation");
+    } catch (error) {
+      console.error("Error creating order:", error);
+      // Still redirect to confirmation page, but log the error
+      router.push("/confirmation");
     }
   };
 
-  if (!selectedShop || !printSettings) {
+  if (error) {
     return (
       <>
         <NavBar />
-        <div className="pt-25 px-8">
-          <div className="max-w-3xl mx-auto text-center py-12">
-            <p>Loading checkout information...</p>
-          </div>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg mt-4 mx-auto max-w-3xl">
+          <p className="text-red-600">Error: {error}</p>
         </div>
       </>
     );
@@ -162,91 +272,41 @@ export default function CheckoutPage() {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-2xl font-semibold mb-8">Checkout</h1>
 
-          <div className="bg-white rounded-lg border p-6 mb-6">
-            <h2 className="text-lg font-medium mb-4">Order Summary</h2>
-
-            <div className="mb-4 pb-4 border-b">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">
-                Selected Shop
-              </h3>
-              <div className="flex justify-between">
-                <p className="font-medium">{selectedShop.name}</p>
-                <p className="text-sm text-gray-500">{selectedShop.location}</p>
-              </div>
-            </div>
-
-            <div className="mb-4 pb-4 border-b">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Files</h3>
+          {selectedShop && (
+            <div className="bg-white rounded-lg border p-6 mb-6">
+              <h2 className="text-lg font-medium mb-4">Order Summary</h2>
               <div className="space-y-2">
-                {files.map((file) => {
-                  const fileSettings = printSettings[file.id] || {};
-                  const basePrice = fileSettings.isBlackAndWhite
-                    ? selectedShop.priceBW
-                    : selectedShop.priceColor;
-                  const pageCount = file.pageCount || 1;
-
-                  // Calculate sheets based on single/double sided
-                  const sheetsNeeded = fileSettings.isDoubleSided
-                    ? Math.ceil(pageCount / 2)
-                    : pageCount;
-
-                  const filePrice = basePrice * sheetsNeeded;
-
-                  return (
-                    <div key={file.id} className="flex justify-between text-sm">
-                      <div>
-                        <p>{file.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {fileSettings.isBlackAndWhite ? "B&W" : "Color"} •
-                          {fileSettings.isDoubleSided
-                            ? " Double-sided"
-                            : " Single-sided"}{" "}
-                          •{pageCount} pages • {sheetsNeeded} sheets
-                        </p>
-                      </div>
-                      <p>₹{filePrice.toFixed(2)}</p>
-                    </div>
-                  );
-                })}
+                <div className="flex justify-between items-center">
+                  <span>Subtotal:</span>
+                  <span>₹{subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm text-gray-600">
+                  <span>Platform Charges:</span>
+                  <span>₹{platformCharges.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center font-medium pt-2 border-t">
+                  <span>Total Amount:</span>
+                  <span>₹{totalPrice.toFixed(2)}</span>
+                </div>
               </div>
-            </div>
-
-            {printSettings.description && (
-              <div className="mb-4 pb-4 border-b">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">
-                  Instructions
-                </h3>
-                <p className="text-sm">{printSettings.description}</p>
-              </div>
-            )}
-
-            <div className="flex justify-between items-center text-lg font-semibold mt-4">
-              <span>Total:</span>
-              <span>₹{totalPrice.toFixed(2)}</span>
-            </div>
-          </div>
-
-          {error && (
-            <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
-              {error}
             </div>
           )}
 
-          <div className="flex justify-end gap-4 mb-8">
-            <button
-              onClick={() => router.push("/instructions")}
-              className="px-6 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
-              disabled={loading}
-            >
-              Back
-            </button>
-            <button
-              onClick={handleSubmitOrder}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              disabled={loading}
-            >
-              {loading ? "Processing..." : "Place Order"}
-            </button>
+          <div className="bg-white rounded-lg border p-6">
+            <h2 className="text-lg font-medium mb-4">Payment Details</h2>
+            {clientSecret ? (
+              <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <PaymentForm
+                  totalAmount={totalPrice}
+                  onPaymentSuccess={handlePaymentSuccess}
+                />
+              </Elements>
+            ) : (
+              <div className="flex items-center justify-center p-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>
+                <span className="ml-2">Loading payment form...</span>
+              </div>
+            )}
           </div>
         </div>
       </main>

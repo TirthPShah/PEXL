@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileWithProgress } from "@/types/files";
+import { PrintSettingsItem } from "@/types/printSettings";
 import NavBar from "@/components/NavBar";
+import { calculatePlatformCharges } from "@/lib/calculatePlatformCharges";
 
-interface PrintSettings {
-  description: string;
-}
+// Remove the PrintSettingsItem interface since we're importing it
 
 interface SelectedShop {
   id: string;
@@ -17,23 +17,25 @@ interface SelectedShop {
   status: string;
   location: string;
   contact: string;
-  ownerMail: string;
 }
 
 export default function InstructionsPage() {
   const router = useRouter();
   const [files, setFiles] = useState<FileWithProgress[]>([]);
-  const [settings, setSettings] = useState<PrintSettings>({
+  const [settings, setSettings] = useState<{ description: string }>({
     description: "",
   });
   const [totalPrice, setTotalPrice] = useState(0);
   const [selectedShop, setSelectedShop] = useState<SelectedShop | null>(null);
+  const [subtotal, setSubtotal] = useState(0);
+  const [platformCharges, setPlatformCharges] = useState(0);
 
   useEffect(() => {
-    // Retrieve files, shop info, and settings from localStorage
     const savedFiles = localStorage.getItem("printFiles");
-    const savedSettings = localStorage.getItem("printSettings");
     const savedShop = localStorage.getItem("selectedShop");
+    const printSettingsArray: PrintSettingsItem[] = JSON.parse(
+      localStorage.getItem("printSettingsArray") || "[]"
+    );
 
     if (!savedFiles || !savedShop) {
       router.push("/");
@@ -41,22 +43,23 @@ export default function InstructionsPage() {
     }
 
     const parsedFiles = JSON.parse(savedFiles);
-    const printSettings = savedSettings ? JSON.parse(savedSettings) : {};
     const shop = JSON.parse(savedShop);
 
     setFiles(parsedFiles);
     setSelectedShop(shop);
 
-    // Calculate price based on individual file settings and selected shop's pricing
-    const price = parsedFiles.reduce(
+    // Calculate subtotal first
+    const calculatedSubtotal = parsedFiles.reduce(
       (total: number, file: FileWithProgress) => {
-        const fileSettings = printSettings[file.id] || {};
-        const basePrice = fileSettings.isBlackAndWhite
-          ? shop.priceBW
-          : shop.priceColor;
-        const pageCount = file.pageCount || 1;
+        const fileSettings = printSettingsArray.find(
+          (setting) =>
+            setting.serverId === file.id || setting.tempId === file.id
+        );
 
-        // Calculate sheets based on whether it's single or double sided
+        if (!fileSettings) return total;
+
+        const basePrice = fileSettings.isB_W ? shop.priceBW : shop.priceColor;
+        const pageCount = fileSettings.pageCount || 1;
         const sheetsNeeded = fileSettings.isDoubleSided
           ? Math.ceil(pageCount / 2)
           : pageCount;
@@ -66,7 +69,12 @@ export default function InstructionsPage() {
       0
     );
 
-    setTotalPrice(price);
+    // Calculate platform charges
+    const charges = calculatePlatformCharges(calculatedSubtotal);
+
+    setSubtotal(calculatedSubtotal);
+    setPlatformCharges(charges);
+    setTotalPrice(calculatedSubtotal + charges);
   }, [router]);
 
   const handleDescriptionChange = (
@@ -80,13 +88,33 @@ export default function InstructionsPage() {
 
   const handleNextClick = () => {
     localStorage.setItem(
-      "printSettings",
-      JSON.stringify({
-        ...JSON.parse(localStorage.getItem("printSettings") || "{}"),
-        description: settings.description,
-      })
+      "printSettingsArray",
+      JSON.stringify([
+        ...JSON.parse(localStorage.getItem("printSettingsArray") || "[]"),
+        { description: settings.description },
+      ])
     );
     router.push("/checkout");
+  };
+
+  const handlePrintSettingChange = (
+    fileId: string,
+    setting: keyof Pick<PrintSettingsItem, "isB_W" | "isDoubleSided">,
+    value: boolean
+  ) => {
+    const settings: PrintSettingsItem[] = JSON.parse(
+      localStorage.getItem("printSettingsArray") || "[]"
+    );
+
+    const updatedSettings = settings.map((item) => {
+      if (item.serverId === fileId || item.tempId === fileId) {
+        return { ...item, [setting]: value };
+      }
+      return item;
+    });
+
+    localStorage.setItem("printSettingsArray", JSON.stringify(updatedSettings));
+    // Recalculate total price...
   };
 
   return (
@@ -118,13 +146,20 @@ export default function InstructionsPage() {
             <h2 className="text-lg font-medium mb-4">Files to Print</h2>
             <div className="space-y-4">
               {files.map((file) => {
-                const printSettings = localStorage.getItem("printSettings");
-                const settings = printSettings ? JSON.parse(printSettings) : {};
-                const fileSettings = settings[file.id] || {};
-                const basePrice = fileSettings.isBlackAndWhite
+                const printSettingsArray: PrintSettingsItem[] = JSON.parse(
+                  localStorage.getItem("printSettingsArray") || "[]"
+                );
+                const fileSettings = printSettingsArray.find(
+                  (setting) =>
+                    setting.serverId === file.id || setting.tempId === file.id
+                );
+
+                if (!fileSettings) return null;
+
+                const basePrice = fileSettings.isB_W
                   ? selectedShop?.priceBW || 0
                   : selectedShop?.priceColor || 0;
-                const pageCount = file.pageCount || 1;
+                const pageCount = fileSettings.pageCount || 1;
 
                 // Calculate sheets based on single/double sided
                 const sheetsNeeded = fileSettings.isDoubleSided
@@ -141,7 +176,7 @@ export default function InstructionsPage() {
                     <span className="flex items-center gap-2">
                       {file.name}
                       <span className="text-gray-500">
-                        ({fileSettings.isBlackAndWhite ? "B&W" : "Color"}) •{" "}
+                        ({fileSettings.isB_W ? "B&W" : "Color"}) •{" "}
                         {fileSettings.isDoubleSided
                           ? "Double-sided"
                           : "Single-sided"}{" "}
@@ -168,9 +203,19 @@ export default function InstructionsPage() {
           </div>
 
           <div className="bg-white rounded-lg border p-6 mb-6">
-            <div className="flex justify-between items-center text-lg font-semibold">
-              <span>Total Price:</span>
-              <span>₹{totalPrice.toFixed(2)}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-lg">
+                <span>Subtotal:</span>
+                <span>₹{subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm text-gray-600">
+                <span>Platform Charges:</span>
+                <span>₹{platformCharges.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-lg font-semibold pt-2 border-t">
+                <span>Total Price:</span>
+                <span>₹{totalPrice.toFixed(2)}</span>
+              </div>
             </div>
           </div>
 
