@@ -9,13 +9,13 @@ import { getAuth } from "firebase/auth";
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 // These are public keys so its ok to expose them :) maybe hahah
 const firebaseConfig = {
-    apiKey: "AIzaSyCZpOkT-RjDvvb_kEBhspws_vwqRKbaMas",
-    authDomain: "otpbabypexl.firebaseapp.com",
-    projectId: "otpbabypexl",
-    storageBucket: "otpbabypexl.firebasestorage.app",
-    messagingSenderId: "738143768621",
-    appId: "1:738143768621:web:e3c7e0ae920c30476268a4",
-    measurementId: "G-H0WVQYZ9RR"
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: "",
+    measurementId: ""
 };
 
 // Initialize Firebase
