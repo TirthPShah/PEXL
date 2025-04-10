@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import type { NextApiRequest } from "next";
+import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { GridFSBucket, ObjectId } from "mongodb";
 import { getServerSession } from "next-auth";
@@ -6,23 +8,26 @@ import { authOptions } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { fileId: string } }
+  context: { params: { fileId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+    const { params } = context;
     // Check authentication
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
+
     const fileId = params.fileId;
     console.log("File ID:", fileId);
-    
+
     if (!fileId) {
-      return NextResponse.json({ error: "No file ID provided" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No file ID provided" },
+        { status: 400 }
+      );
     }
-    
+
     // Connect to MongoDB
     const client = await clientPromise;
     const db = client.db("pexl_files");
@@ -39,40 +44,44 @@ export async function GET(
 
     // Stream the file from GridFS
     const downloadStream = bucket.openDownloadStream(new ObjectId(fileId));
-    
+
     // Convert to a format that can be used by NextResponse
     const chunks: Buffer[] = [];
-    
+
     // Return a streaming response
     return new Promise<NextResponse>((resolve) => {
       downloadStream.on("data", (chunk) => {
         chunks.push(Buffer.from(chunk));
       });
-      
+
       downloadStream.on("error", (err) => {
         console.error("Error streaming file:", err);
-        resolve(NextResponse.json({ error: "Error streaming file" }, { status: 500 }));
+        resolve(
+          NextResponse.json({ error: "Error streaming file" }, { status: 500 })
+        );
       });
-      
+
       downloadStream.on("end", () => {
         const buffer = Buffer.concat(chunks);
-        
+
         // Create response with appropriate headers
         const response = new NextResponse(buffer);
-        
+
         // Set content-type from file info
-        response.headers.set("Content-Type", fileInfo.contentType || "application/octet-stream");
-        
+        response.headers.set(
+          "Content-Type",
+          fileInfo.contentType || "application/octet-stream"
+        );
+
         // Set disposition to attachment with the original filename
         response.headers.set(
-          "Content-Disposition", 
+          "Content-Disposition",
           `attachment; filename="${encodeURIComponent(fileInfo.filename)}"`
         );
-        
+
         resolve(response);
       });
     });
-    
   } catch (error) {
     console.error("Download error:", error);
     return NextResponse.json(
