@@ -112,12 +112,6 @@ export function FileUploadZone({
     onDrop,
     accept: {
       "application/pdf": [".pdf"],
-      "application/msword": [".doc"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        [".docx"],
-      "application/vnd.ms-powerpoint": [".ppt"],
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-        [".pptx"],
       "image/*": [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".webp"],
     },
     maxSize: 50 * 1024 * 1024, // 50MB
@@ -146,7 +140,7 @@ export function FileUploadZone({
         <p className="text-lg font-medium">Upload files to be printed</p>
         <p className="text-gray-500 mt-2">Maximum file size: 50 MB</p>
         <p className="text-gray-500">
-          Accepted formats: PDF, DOC, DOCX, PPT, PPTX, PNG, JPG, JPEG, GIF, BMP,
+          Accepted formats: PDF, PNG, JPG, JPEG, GIF, BMP,
           TIFF, WEBP
         </p>
       </div>

@@ -135,9 +135,48 @@ export default function ShopInterface() {
   };
 
   const markOrderAsComplete = async (orderId: string) => {
-    // Implementation for marking order as complete
-    // This would be connected to another API endpoint
-    toast.info("Mark as complete functionality coming soon");
+    try {
+      // Find the order to be completed
+      const orderToComplete = orders.find(order => order._id === orderId);
+      
+      if (!orderToComplete) {
+        toast.error("Order not found");
+        return;
+      }
+      
+      // Set loading state if needed
+      setLoading(true);
+      
+      // Make API call to mark order as completed
+      const response = await fetch(`/api/orders/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          orderId: orderId,
+          orderData: orderToComplete
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to mark order as complete: ${response.statusText}`);
+      }
+      
+      // Update local state - remove from active orders
+      setOrders(orders.filter(order => order._id !== orderId));
+      
+      toast.success("Order marked as complete successfully");
+    } catch (error) {
+      console.error("Error marking order as complete:", error);
+      toast.error(
+        `Failed to mark order as complete: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
