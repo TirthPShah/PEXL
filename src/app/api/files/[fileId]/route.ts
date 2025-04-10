@@ -1,24 +1,25 @@
 import type { NextRequest } from "next/server";
-import type { NextApiRequest } from "next";
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { GridFSBucket, ObjectId } from "mongodb";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export async function GET(
-  request: NextRequest,
-  context: { params: { fileId: string } }
-) {
+type Params = {
+  params: {
+    fileId: string;
+  };
+};
+
+export async function GET(request: NextRequest, context: Params) {
   try {
     const session = await getServerSession(authOptions);
-    const { params } = context;
     // Check authentication
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const fileId = params.fileId;
+    const {fileId} = context.params;
     console.log("File ID:", fileId);
 
     if (!fileId) {
