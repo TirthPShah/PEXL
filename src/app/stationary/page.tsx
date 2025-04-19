@@ -73,7 +73,7 @@ export default function StationaryPage() {
         <h1 className="text-2xl font-bold mb-6">Available Stationery Shops</h1>
 
         <div className="w-full space-y-4">
-          {shops.map((shop) => (
+          {shops.filter((shop) => shop.status === 'online').map((shop) => (
             <div
               key={shop._id?.toString()}
               onClick={() => handleShopSelect(shop._id?.toString() || "")}
