@@ -46,6 +46,7 @@ export function FileUploadZone({
         isB_W: false,
         isDoubleSided: true,
         pageCount: undefined,
+        paperType: "a4",
       })),
     ];
 

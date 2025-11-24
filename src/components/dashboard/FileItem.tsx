@@ -3,6 +3,8 @@
 import { Upload } from "lucide-react";
 import { FileWithProgress } from "@/types/files";
 import { PrintSettingsItem } from "@/types/printSettings";
+import { PAPER_TYPES, PaperType } from "@/types/paper";
+import { paperTypeMeta } from "@/lib/paperStock";
 import * as Switch from "@radix-ui/react-switch";
 import { useState, useEffect } from "react";
 
@@ -13,6 +15,14 @@ interface FileItemProps {
 export function FileItem({ file }: FileItemProps) {
   const [isColor, setIsColor] = useState(false);
   const [isDoubleSided, setIsDoubleSided] = useState(true);
+  const [paperType, setPaperType] = useState<PaperType>("a4");
+  const [stockLimits, setStockLimits] = useState<
+    Record<PaperType, number | null>
+  >({
+    a4: null,
+    colored: null,
+    photo: null,
+  });
 
   // Load initial settings from printSettingsArray
   useEffect(() => {
@@ -31,11 +41,65 @@ export function FileItem({ file }: FileItemProps) {
         // Note: isColor is the opposite of isB_W
         setIsColor(!fileSettings.isB_W);
         setIsDoubleSided(fileSettings.isDoubleSided);
+        setPaperType((fileSettings.paperType as PaperType) || "a4");
+      } else {
+        setPaperType("a4");
       }
     };
 
     loadSettings();
   }, [file.id]);
+
+  useEffect(() => {
+    try {
+      const savedStock = localStorage.getItem("selectedShopStock");
+      if (!savedStock) {
+        setStockLimits({
+          a4: null,
+          colored: null,
+          photo: null,
+        });
+        return;
+      }
+      const parsed = JSON.parse(savedStock) as Record<
+        PaperType,
+        { quantity?: number }
+      >;
+      setStockLimits({
+        a4:
+          typeof parsed?.a4?.quantity === "number" ? parsed.a4.quantity : null,
+        colored:
+          typeof parsed?.colored?.quantity === "number"
+            ? parsed.colored.quantity
+            : null,
+        photo:
+          typeof parsed?.photo?.quantity === "number"
+            ? parsed.photo.quantity
+            : null,
+      });
+    } catch (error) {
+      console.warn("Failed to parse shop stock", error);
+      setStockLimits({
+        a4: null,
+        colored: null,
+        photo: null,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const availableFallback = PAPER_TYPES.find((type) => {
+      const limit = stockLimits[type];
+      return limit === null || limit > 0;
+    });
+    if (
+      (stockLimits[paperType] !== null && (stockLimits[paperType] ?? 0) <= 0) &&
+      availableFallback &&
+      availableFallback !== paperType
+    ) {
+      setPaperType(availableFallback);
+    }
+  }, [paperType, stockLimits]);
 
   // Update settings when toggles change
   useEffect(() => {
@@ -50,6 +114,7 @@ export function FileItem({ file }: FileItemProps) {
           ...setting,
           isB_W: !isColor, // Convert isColor to isB_W (they're opposites)
           isDoubleSided: isDoubleSided,
+          paperType,
         };
       }
       return setting;
@@ -66,9 +131,10 @@ export function FileItem({ file }: FileItemProps) {
     settings[file.id] = {
       isBlackAndWhite: !isColor,
       isDoubleSided: isDoubleSided,
+      paperType,
     };
     localStorage.setItem("printSettings", JSON.stringify(settings));
-  }, [isColor, isDoubleSided, file.id]);
+  }, [isColor, isDoubleSided, file.id, paperType]);
 
   const formatFileSize = (bytes: number): string => {
     if (!bytes || bytes === 0) return "0 Bytes";
@@ -76,6 +142,11 @@ export function FileItem({ file }: FileItemProps) {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const isTypeDisabled = (type: PaperType) => {
+    const limit = stockLimits[type];
+    return limit !== null && limit <= 0;
   };
 
   return (
@@ -97,6 +168,33 @@ export function FileItem({ file }: FileItemProps) {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-700 mb-1">
+              Paper Type
+            </label>
+            <select
+              value={paperType}
+              onChange={(event) =>
+                setPaperType(event.target.value as PaperType)
+              }
+              className="border rounded-lg px-3 py-1.5 text-sm"
+              disabled={PAPER_TYPES.every((type) => isTypeDisabled(type))}
+            >
+              {PAPER_TYPES.map((type) => (
+                <option key={type} value={type} disabled={isTypeDisabled(type)}>
+                  {paperTypeMeta[type].label}
+                  {isTypeDisabled(type) ? " (Out)" : ""}
+                </option>
+              ))}
+            </select>
+            {stockLimits[paperType] !== null &&
+              (stockLimits[paperType] ?? 0) <= 0 && (
+                <p className="text-xs text-red-600 mt-1">
+                  Selected shop is out of {paperTypeMeta[paperType].label}.
+                </p>
+              )}
+          </div>
+
           {/* Color toggle */}
           <div className="flex items-center gap-2">
             <label

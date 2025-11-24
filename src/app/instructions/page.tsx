@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileWithProgress } from "@/types/files";
 import { PrintSettingsItem } from "@/types/printSettings";
+import {
+  PAPER_TYPES,
+  PaperStockRecord,
+  PaperType,
+} from "@/types/paper";
+import { paperTypeMeta, normalizePaperStock } from "@/lib/paperStock";
 import NavBar from "@/components/NavBar";
 import { calculatePlatformCharges } from "@/lib/calculatePlatformCharges";
 
@@ -29,12 +35,16 @@ export default function InstructionsPage() {
   const [selectedShop, setSelectedShop] = useState<SelectedShop | null>(null);
   const [subtotal, setSubtotal] = useState(0);
   const [platformCharges, setPlatformCharges] = useState(0);
+  const [printSettings, setPrintSettings] = useState<PrintSettingsItem[]>([]);
+  const [paperStock, setPaperStock] = useState<PaperStockRecord | null>(null);
 
   useEffect(() => {
     const savedFiles = localStorage.getItem("printFiles");
     const savedShop = localStorage.getItem("selectedShop");
     const printSettingsArray: PrintSettingsItem[] = JSON.parse(
       localStorage.getItem("printSettingsArray") || "[]"
+    ).filter(
+      (item: PrintSettingsItem) => item?.tempId || item?.serverId
     );
 
     if (!savedFiles || !savedShop) {
@@ -47,6 +57,27 @@ export default function InstructionsPage() {
 
     setFiles(parsedFiles);
     setSelectedShop(shop);
+    setPrintSettings(printSettingsArray);
+
+    try {
+      const savedStock = localStorage.getItem("selectedShopStock");
+      if (savedStock) {
+        setPaperStock(normalizePaperStock(JSON.parse(savedStock)));
+      }
+    } catch (error) {
+      console.warn("Unable to parse shop stock", error);
+    }
+
+    try {
+      const savedInstructions = JSON.parse(
+        localStorage.getItem("printInstructions") || "{}"
+      );
+      if (savedInstructions?.description) {
+        setSettings({ description: savedInstructions.description });
+      }
+    } catch (error) {
+      console.warn("Unable to read saved instructions", error);
+    }
 
     // Calculate subtotal first
     const calculatedSubtotal = parsedFiles.reduce(
@@ -87,15 +118,40 @@ export default function InstructionsPage() {
   };
 
   const handleNextClick = () => {
+    localStorage.setItem("printSettingsArray", JSON.stringify(printSettings));
     localStorage.setItem(
-      "printSettingsArray",
-      JSON.stringify([
-        ...JSON.parse(localStorage.getItem("printSettingsArray") || "[]"),
-        { description: settings.description },
-      ])
+      "printInstructions",
+      JSON.stringify({ description: settings.description })
     );
     router.push("/checkout");
   };
+
+  const paperUsage = PAPER_TYPES.reduce(
+    (acc, type) => ({ ...acc, [type]: 0 }),
+    {} as Record<PaperType, number>
+  );
+
+  files.forEach((file) => {
+    const fileSettings = printSettings.find(
+      (setting) =>
+        setting.serverId === file.id || setting.tempId === file.id
+    );
+    if (!fileSettings) return;
+    const pageCount = fileSettings.pageCount || file.pageCount || 1;
+    const sheetsNeeded = fileSettings.isDoubleSided
+      ? Math.ceil(pageCount / 2)
+      : pageCount;
+    const type = (fileSettings.paperType as PaperType) || "a4";
+    paperUsage[type] += sheetsNeeded;
+  });
+
+  const insufficientTypes = PAPER_TYPES.filter((type) => {
+    if (!paperStock) return false;
+    const available = paperStock[type]?.quantity ?? Number.POSITIVE_INFINITY;
+    return paperUsage[type] > available;
+  });
+
+  const disableCheckout = insufficientTypes.length > 0;
 
   // const handlePrintSettingChange = (
   //   fileId: string,
@@ -146,10 +202,7 @@ export default function InstructionsPage() {
             <h2 className="text-lg font-medium mb-4">Files to Print</h2>
             <div className="space-y-4">
               {files.map((file) => {
-                const printSettingsArray: PrintSettingsItem[] = JSON.parse(
-                  localStorage.getItem("printSettingsArray") || "[]"
-                );
-                const fileSettings = printSettingsArray.find(
+                const fileSettings = printSettings.find(
                   (setting) =>
                     setting.serverId === file.id || setting.tempId === file.id
                 );
@@ -180,7 +233,10 @@ export default function InstructionsPage() {
                         {fileSettings.isDoubleSided
                           ? "Double-sided"
                           : "Single-sided"}{" "}
-                        • {pageCount} pages • {sheetsNeeded} sheets
+                        • {pageCount} pages • {sheetsNeeded} sheets •{" "}
+                        {paperTypeMeta[
+                          (fileSettings.paperType as PaperType) || "a4"
+                        ].label}
                       </span>
                     </span>
                     <span>₹{filePrice.toFixed(2)}</span>
@@ -219,6 +275,16 @@ export default function InstructionsPage() {
             </div>
           </div>
 
+          {insufficientTypes.length > 0 && (
+            <div className="mb-4 p-4 border border-red-200 bg-red-50 rounded-lg text-sm text-red-700">
+              The selected shop is currently out of stock for{" "}
+              {insufficientTypes
+                .map((type) => paperTypeMeta[type].label)
+                .join(", ")}
+              . Please adjust your print settings or choose a different shop.
+            </div>
+          )}
+
           <div className="flex justify-end gap-4 mb-8">
             <button
               onClick={() => router.push("/stationary")}
@@ -228,7 +294,12 @@ export default function InstructionsPage() {
             </button>
             <button
               onClick={handleNextClick}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={disableCheckout}
+              className={`px-6 py-2 rounded-lg transition-colors ${
+                disableCheckout
+                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
             >
               Continue to Checkout
             </button>

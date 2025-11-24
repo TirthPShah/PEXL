@@ -41,7 +41,7 @@ export default function StationaryPage() {
     );
   }
 
-  const handleShopSelect = (shopId: string) => {
+  const handleShopSelect = async (shopId: string) => {
     // Find the selected shop
     const selectedShop = shops.find((shop) => shop._id?.toString() === shopId);
 
@@ -60,6 +60,24 @@ export default function StationaryPage() {
           ownerMail: selectedShop.ownerMail,
         })
       );
+
+      try {
+        const inventoryResponse = await fetch(
+          `/api/shops/${selectedShop._id?.toString()}/inventory`
+        );
+        if (inventoryResponse.ok) {
+          const inventoryData = await inventoryResponse.json();
+          localStorage.setItem(
+            "selectedShopStock",
+            JSON.stringify(inventoryData.paperStock)
+          );
+        } else {
+          localStorage.removeItem("selectedShopStock");
+        }
+      } catch (error) {
+        console.warn("Failed to load shop inventory", error);
+        localStorage.removeItem("selectedShopStock");
+      }
     }
 
     // Navigate to instructions

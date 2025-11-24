@@ -9,6 +9,8 @@ import { PrintSettingsItem } from "@/types/printSettings";
 import NavBar from "@/components/NavBar";
 import PaymentForm from "@/components/PaymentForm";
 import { calculatePlatformCharges } from "@/lib/calculatePlatformCharges";
+import { PaperType } from "@/types/paper";
+import { useSession } from "next-auth/react";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -39,6 +41,7 @@ interface ItemDescription {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [files, setFiles] = useState<FileWithProgress[]>([]);
   const [selectedShop, setSelectedShop] = useState<SelectedShop | null>(null);
   const [clientSecret, setClientSecret] = useState<string>("");
@@ -55,8 +58,10 @@ export default function CheckoutPage() {
         // Load saved data
         const savedFiles = localStorage.getItem("printFiles");
         const savedShop = localStorage.getItem("selectedShop");
-        const printSettingsArray = JSON.parse(
+        const printSettingsArray: PrintSettingsItem[] = JSON.parse(
           localStorage.getItem("printSettingsArray") || "[]"
+        ).filter(
+          (item: PrintSettingsItem) => item?.tempId || item?.serverId
         );
 
         if (!savedFiles || !savedShop) {
@@ -109,10 +114,11 @@ export default function CheckoutPage() {
         // Create file descriptions for the receipt
         const filesDescription: FileDescription[] = parsedFiles.map(
           (file: FileWithProgress) => {
-            const fileSettings = printSettingsArray.find(
-              (setting: PrintSettingsItem) =>
-                setting.serverId === file.id || setting.tempId === file.id
-            ) || { isB_W: false, isDoubleSided: true, pageCount: 1 };
+            const fileSettings =
+              printSettingsArray.find(
+                (setting: PrintSettingsItem) =>
+                  setting.serverId === file.id || setting.tempId === file.id
+              ) || { isB_W: false, isDoubleSided: true, pageCount: 1 };
 
             // Convert file size to readable format
             const formatFileSize = (bytes: number): string => {
@@ -186,15 +192,25 @@ export default function CheckoutPage() {
   const handlePaymentSuccess = async () => {
     try {
       // Create order in the database
-      const printSettingsArray = JSON.parse(
-        localStorage.getItem("printSettingsArray") || "[]"
-      );
+        const printSettingsArray: PrintSettingsItem[] = JSON.parse(
+          localStorage.getItem("printSettingsArray") || "[]"
+        ).filter(
+          (item: PrintSettingsItem) => item?.tempId || item?.serverId
+        );
 
-      // Find the description if it exists
-      const descriptionItem = printSettingsArray.find(
-        (item: ItemDescription) => item.description
-      );
-      const description = descriptionItem?.description || "";
+        const instructions =
+          JSON.parse(localStorage.getItem("printInstructions") || "{}") || {};
+
+        // Find the description if it exists in storage (fallback to legacy format)
+        const description =
+          instructions.description ||
+          (
+            JSON.parse(
+              localStorage.getItem("printSettingsArray") || "[]"
+            ) as ItemDescription[]
+          ).find((item) => typeof item?.description === "string")
+            ?.description ||
+          "";
 
       // Prepare order data
       const ownerMail = selectedShop?.ownerMail ? selectedShop.ownerMail : "N/A";
@@ -204,17 +220,19 @@ export default function CheckoutPage() {
         shop: selectedShop,
         ownerMail: ownerMail,
         files: files.map((file) => {
-          const fileSettings = printSettingsArray.find(
-        (setting: PrintSettingsItem) =>
-          setting.serverId === file.id || setting.tempId === file.id
-          ) || { isB_W: false, isDoubleSided: true };
+          const fileSettings =
+            printSettingsArray.find(
+              (setting: PrintSettingsItem) =>
+                setting.serverId === file.id || setting.tempId === file.id
+            ) || { isB_W: false, isDoubleSided: true };
 
           return {
-        id: file.serverId || file.id,
-        name: file.name,
-        pageCount: file.pageCount || 1,
-        isBlackAndWhite: fileSettings.isB_W,
-        isDoubleSided: fileSettings.isDoubleSided,
+            id: file.serverId || file.id,
+            name: file.name,
+            pageCount: file.pageCount || 1,
+            isBlackAndWhite: fileSettings.isB_W,
+            isDoubleSided: fileSettings.isDoubleSided,
+            paperType: (fileSettings.paperType as PaperType) || undefined,
           };
         }),
         subtotal: subtotal,
@@ -223,6 +241,8 @@ export default function CheckoutPage() {
         instructions: description,
         paymentMethod: "card",
         status: "active",
+        customerEmail: session?.user?.email,
+        customerName: session?.user?.name,
       };
 
       // Send order to API

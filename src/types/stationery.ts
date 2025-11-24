@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb";
+import { PaperStockRecord } from "./paper";
 
 export interface StationeryShop {
   _id?: ObjectId | string;
@@ -9,6 +10,7 @@ export interface StationeryShop {
   priceBW: number;
   priceColor: number;
   ownerMail: string;
+  paperStock?: PaperStockRecord;
 }
 
 export interface StationeryOwner {
