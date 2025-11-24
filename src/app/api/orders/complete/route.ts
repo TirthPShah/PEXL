@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import {
+  buildStockIncPayload,
+  computeSheetsNeeded,
+  inferPaperType,
+} from "@/lib/paperStock";
+import { PAPER_TYPES, PaperType } from "@/types/paper";
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +32,7 @@ export async function POST(request: Request) {
     // Add completion timestamp and ensure the _id is properly handled
     const completedOrder = {
       ...orderData,
-      completedAt: new Date().toISOString(),
+      completedAt: new Date(),
       status: "completed",
     };
 
@@ -54,6 +60,44 @@ export async function POST(request: Request) {
         { error: "Order not found or already completed" },
         { status: 404 }
       );
+    }
+
+    // Reduce shop inventory for the fulfilled order
+    try {
+      const stockUsage = PAPER_TYPES.reduce(
+        (acc, type) => ({ ...acc, [type]: 0 }),
+        {} as Record<PaperType, number>
+      );
+
+      (orderData.files || []).forEach((file: any) => {
+        const sheetsNeeded = computeSheetsNeeded(
+          file?.pageCount || 1,
+          file?.isDoubleSided
+        );
+        const type = inferPaperType(
+          file?.paperType as PaperType | undefined,
+          file?.isBlackAndWhite
+        );
+        stockUsage[type] -= sheetsNeeded;
+      });
+
+      const incPayload = buildStockIncPayload(stockUsage);
+      const shopId = orderData?.shop?.id || orderData?.shop?._id;
+
+      if (shopId && Object.keys(incPayload).length > 0) {
+        const filter = ObjectId.isValid(shopId)
+          ? { _id: new ObjectId(shopId) }
+          : null;
+
+        if (filter) {
+          const stationeryDb = client.db("pexl_stationery");
+          await stationeryDb.collection("shops").updateOne(filter, {
+            $inc: incPayload,
+          });
+        }
+      }
+    } catch (inventoryError) {
+      console.error("Failed to decrement stock after completion:", inventoryError);
     }
 
     return NextResponse.json({
